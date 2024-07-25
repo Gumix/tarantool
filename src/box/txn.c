@@ -363,8 +363,8 @@ txn_rollback_one_stmt(struct txn *txn, struct txn_stmt *stmt)
 		diag_log();
 		panic("statement rollback trigger failed");
 	}
-	if (txn->engine != NULL && stmt->space != NULL)
-		engine_rollback_statement(txn->engine, txn, stmt);
+	if (stmt->space != NULL)
+		engine_rollback_statement(stmt->space->engine, txn, stmt);
 }
 
 /*
@@ -523,8 +523,9 @@ txn_begin(void)
 	txn->status = TXN_INPROGRESS;
 	txn->isolation = txn_default_isolation;
 	txn->signature = TXN_SIGNATURE_UNKNOWN;
-	txn->engine = NULL;
-	txn->engine_tx = NULL;
+	memset(&txn->engines, 0, sizeof(txn->engines));
+	txn->engines_count = 0;
+	memset(&txn->engines_tx, 0, sizeof(txn->engines_tx));
 	txn->is_schema_changed = false;
 	rlist_create(&txn->savepoints);
 	txn->fiber = NULL;
@@ -553,17 +554,28 @@ txn_begin_in_engine(struct engine *engine, struct txn *txn)
 {
 	if (engine->flags & ENGINE_BYPASS_TX)
 		return 0;
-	if (txn->engine == NULL) {
-		txn->engine = engine;
-		return engine_begin(engine, txn);
-	} else if (txn->engine != engine) {
-		/**
-		 * Only one engine can be used in
-		 * a multi-statement transaction currently.
-		 */
-		diag_set(ClientError, ER_CROSS_ENGINE_TRANSACTION);
-		return -1;
+	if (txn->engines[engine->id] != NULL) {
+		assert(txn->engines[engine->id] == engine);
+		return 0;
 	}
+	txn->engines[engine->id] = engine;
+
+	if (txn->engines_count > 0) {
+		for (size_t i = 0; i < MAX_TXN_ENGINE_COUNT; i++) {
+			if (txn->engines[i] != NULL &&
+			    !(txn->engines[i]->flags &
+					ENGINE_SUPPORTS_CROSS_TX_NON_YIELD)) {
+				diag_set(ClientError,
+					 ER_CROSS_ENGINE_TRANSACTION,
+					 txn->engines[i]->name);
+				txn->engines[engine->id] = NULL;
+				return -1;
+			}
+		}
+	}
+	if (engine_begin(engine, txn) != 0)
+		return -1;
+	txn->engines_count++;
 	return 0;
 }
 
@@ -742,8 +754,10 @@ txn_complete_fail(struct txn *txn)
 	stailq_reverse(&txn->stmts);
 	stailq_foreach_entry(stmt, &txn->stmts, next)
 		txn_rollback_one_stmt(txn, stmt);
-	if (txn->engine != NULL)
-		engine_rollback(txn->engine, txn);
+	for (size_t i = 0; i < MAX_TXN_ENGINE_COUNT; i++) {
+		if (txn->engines[i] != NULL)
+			engine_rollback(txn->engines[i], txn);
+	}
 	if (txn_has_flag(txn, TXN_HAS_TRIGGERS)) {
 		if (trigger_run(&txn->on_rollback, txn_first_stmt(txn)) != 0) {
 			diag_log();
@@ -773,8 +787,10 @@ txn_complete_success(struct txn *txn)
 		assert(!stmt->has_triggers || rlist_empty(&stmt->on_commit));
 #endif
 	txn->status = TXN_COMMITTED;
-	if (txn->engine != NULL)
-		engine_commit(txn->engine, txn);
+	for (size_t i = 0; i < MAX_TXN_ENGINE_COUNT; i++) {
+		if (txn->engines[i] != NULL)
+			engine_commit(txn->engines[i], txn);
+	}
 	if (txn_has_flag(txn, TXN_HAS_TRIGGERS)) {
 		/*
 		 * Commit triggers must be run in the same order they were added
@@ -1006,9 +1022,14 @@ txn_prepare(struct txn *txn)
 	 * Perform transaction conflict resolution. Engine == NULL when
 	 * we have a bunch of IPROTO_NOP statements.
 	 */
-	if (txn->engine != NULL) {
-		if (engine_prepare(txn->engine, txn) != 0) {
+	for (size_t i = 0; i < MAX_TXN_ENGINE_COUNT; i++) {
+		if (txn->engines[i] != NULL &&
+		    engine_prepare(txn->engines[i], txn) != 0) {
 			txn->psn = 0;
+			for (size_t j = 0; j < i; j++) {
+				if (txn->engines[j] != NULL)
+					engine_rollback(txn->engines[j], txn);
+			}
 			return -1;
 		}
 	}

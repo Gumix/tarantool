@@ -33,11 +33,11 @@
 
 #include <stdbool.h>
 #include "salad/stailq.h"
+#include "engine.h"
 #include "trigger.h"
 #include "fiber.h"
 #include "space.h"
 #include "journal.h"
-#include "tt_static.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -472,10 +472,15 @@ struct txn {
 	struct stailq_entry *sub_stmt_begin[TXN_SUB_STMT_MAX + 1];
 	/** LSN of this transaction when written to WAL. */
 	int64_t signature;
-	/** Engine involved in multi-statement transaction. */
-	struct engine *engine;
-	/** Engine-specific transaction data */
-	void *engine_tx;
+	/**
+	 * Engines involved in multi-statement transaction. Indexed by
+	 * `engine::id'. If NULL, then the engine is not involved in txn.
+	 */
+	struct engine *engines[MAX_TXN_ENGINE_COUNT];
+	/** Number of non-NULL entries in `engines[]'. */
+	uint32_t engines_count;
+	/** Engine-specific transaction data. Indexed by `engine::id'. */
+	void *engines_tx[MAX_TXN_ENGINE_COUNT];
 	/* A fiber to wake up when transaction is finished. */
 	struct fiber *fiber;
 	/** Timestampt of entry write start. */

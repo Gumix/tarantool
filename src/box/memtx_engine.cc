@@ -614,7 +614,8 @@ memtx_engine_prepare(struct engine *engine, struct txn *txn)
 	if (memtx_tx_manager_use_mvcc_engine) {
 		struct txn_stmt *stmt;
 		stailq_foreach_entry(stmt, &txn->stmts, next) {
-			assert(stmt->space->engine == engine);
+			if (stmt->space->engine != engine)
+				continue;
 			memtx_tx_history_prepare_stmt(stmt);
 		}
 		memtx_tx_prepare_finalize(txn);
@@ -631,7 +632,8 @@ memtx_engine_commit(struct engine *engine, struct txn *txn)
 	struct txn_stmt *stmt;
 	stailq_foreach_entry(stmt, &txn->stmts, next) {
 		if (memtx_tx_manager_use_mvcc_engine) {
-			assert(stmt->space->engine == engine);
+			if (stmt->space->engine != engine)
+				continue;
 			memtx_tx_history_commit_stmt(stmt);
 		}
 		if (stmt->engine_savepoint != NULL) {
@@ -1798,6 +1800,8 @@ memtx_engine_new(const char *snap_dirname, bool force_recovery,
 	memtx->base.flags = (ENGINE_SUPPORTS_READ_VIEW |
 			     ENGINE_CHECKPOINT_BY_MEMTX |
 			     ENGINE_JOIN_BY_MEMTX);
+	if (!memtx_tx_manager_use_mvcc_engine)
+		memtx->base.flags |= ENGINE_SUPPORTS_CROSS_TX_NON_YIELD;
 
 	memtx->func_key_format = simple_tuple_format_new(
 		&memtx_tuple_format_vtab, &memtx->base, NULL, 0);

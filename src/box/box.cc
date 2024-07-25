@@ -4947,15 +4947,6 @@ engine_init()
 
 	memcs_engine_register();
 
-	struct sysview_engine *sysview = sysview_engine_new_xc();
-	engine_register((struct engine *)sysview);
-
-	struct engine *service_engine = service_engine_new_xc();
-	engine_register(service_engine);
-
-	struct engine *blackhole = blackhole_engine_new_xc();
-	engine_register(blackhole);
-
 	struct engine *vinyl;
 	vinyl = vinyl_engine_new_xc(cfg_gets("vinyl_dir"),
 				    cfg_geti64("vinyl_memory"),
@@ -4966,6 +4957,15 @@ engine_init()
 	box_set_vinyl_max_tuple_size();
 	box_set_vinyl_cache();
 	box_set_vinyl_timeout();
+
+	struct sysview_engine *sysview = sysview_engine_new_xc();
+	engine_register((struct engine *)sysview);
+
+	struct engine *service_engine = service_engine_new_xc();
+	engine_register(service_engine);
+
+	struct engine *blackhole = blackhole_engine_new_xc();
+	engine_register(blackhole);
 }
 
 /**
