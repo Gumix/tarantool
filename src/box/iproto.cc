@@ -1866,6 +1866,7 @@ iproto_msg_decode(struct iproto_msg *msg, struct cmsg_hop **route)
 	case IPROTO_UPDATE:
 	case IPROTO_DELETE:
 	case IPROTO_UPSERT:
+	case IPROTO_INSERT_ARROW:
 		assert(type < sizeof(iproto_thread->dml_route) /
 			      sizeof(*iproto_thread->dml_route));
 		*route = iproto_thread->dml_route[type];
@@ -3664,6 +3665,8 @@ iproto_thread_init_routes(struct iproto_thread *iproto_thread)
 	iproto_thread->dml_route[12] = NULL;
 	/* IPROTO_PREPARE */
 	iproto_thread->dml_route[13] = iproto_thread->sql_route;
+	/* IPROTO_INSERT_ARROW */
+	iproto_thread->dml_route[17] = iproto_thread->process1_route;
 	iproto_thread->connect_route[0] =
 		{ tx_process_connect, &iproto_thread->net_pipe };
 	iproto_thread->connect_route[1] = { net_send_greeting, NULL };

@@ -211,6 +211,10 @@ struct request {
 	/** Insert/replace/upsert tuple or proc argument or update operations. */
 	const char *tuple;
 	const char *tuple_end;
+	/** The data in Arrow format. */
+	const char *arrow;
+	/** End of @arrow. */
+	const char *arrow_end;
 	/** Upsert operations. */
 	const char *ops;
 	const char *ops_end;

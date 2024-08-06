@@ -61,6 +61,7 @@
 #include "port.h"
 #include "tweaks.h"
 #include "txn_limbo.h"
+#include "arrow_ipc.h"
 
 /**
  * Controls whether to consider system spaces indefinitely synchronous when the
@@ -1432,6 +1433,21 @@ space_execute_dml(struct space *space, struct txn *txn,
 		if (space->vtab->execute_upsert(space, txn, request) != 0)
 			return -1;
 		break;
+	case IPROTO_INSERT_ARROW:
+		*result = NULL;
+		struct ArrowArray array;
+		struct ArrowSchema schema;
+		if (arrow_ipc_decode(&array, &schema, request->arrow,
+				     request->arrow_end) != 0)
+			return -1;
+		assert(array.release != NULL);
+		assert(schema.release != NULL);
+		if (space->vtab->execute_insert_arrow(space, txn, &array,
+						      &schema) != 0)
+			return -1;
+		array.release(&array);
+		schema.release(&schema);
+		break;
 	default:
 		*result = NULL;
 	}
@@ -1481,6 +1497,19 @@ generic_space_bsize(struct space *space)
 {
 	(void)space;
 	return 0;
+}
+
+int
+generic_space_execute_insert_arrow(struct space *space, struct txn *txn,
+				   struct ArrowArray *array,
+				   struct ArrowSchema *schema)
+{
+	(void)txn;
+	(void)array;
+	(void)schema;
+	diag_set(ClientError, ER_UNSUPPORTED, space->engine->name,
+		 "arrow format");
+	return -1;
 }
 
 int

@@ -49,6 +49,7 @@ const uint64_t iproto_body_key_map[IPROTO_TYPE_STAT_MAX] = {
 	0,                                                     /* BEGIN */
 	0,                                                     /* COMMIT */
 	0,                                                     /* ROLLBACK */
+	bit(SPACE_ID) | bit(ARROW),			/* INSERT_ARROW */
 };
 #undef bit
 

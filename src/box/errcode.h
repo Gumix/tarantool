@@ -432,6 +432,8 @@ struct errcode_record {
 	_(ER_READ_VIEW_BUSY, 285,		"The read view is busy") \
 	_(ER_READ_VIEW_CLOSED, 286,		"The read view is closed") \
 	_(ER_WAL_QUEUE_FULL, 287,		"The WAL queue is full") \
+	_(ER_ARROW_IPC_ENCODE, 288,		"Failed to encode Arrow IPC data", "details", STRING) \
+	_(ER_ARROW_IPC_DECODE, 289,		"Failed to decode Arrow IPC data", "details", STRING) \
 	TEST_ERROR_CODES(_) /** This one should be last. */
 
 /*
