@@ -313,6 +313,7 @@ include_directories(${PROJECT_BINARY_DIR}/src/lib/small/small/include)
 include_directories(${PROJECT_SOURCE_DIR}/src/lib/small/third_party)
 include_directories(${PROJECT_SOURCE_DIR}/src/lib/core)
 include_directories(${PROJECT_SOURCE_DIR}/third_party)
+include_directories(${PROJECT_SOURCE_DIR}/third_party/nanoarrow)
 
 #
 # Specify Tarantool modules prefixes

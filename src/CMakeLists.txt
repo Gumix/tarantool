@@ -225,6 +225,9 @@ set (server_sources
      ${PROJECT_SOURCE_DIR}/third_party/lua-yaml/lyaml.cc
      ${PROJECT_SOURCE_DIR}/third_party/lua-cjson/lua_cjson.c
      ${PROJECT_SOURCE_DIR}/third_party/lua-cjson/strbuf.c
+     ${PROJECT_SOURCE_DIR}/third_party/nanoarrow/flatcc.c
+     ${PROJECT_SOURCE_DIR}/third_party/nanoarrow/nanoarrow.c
+     ${PROJECT_SOURCE_DIR}/third_party/nanoarrow/nanoarrow_ipc.c
      ${COMPRESS_MODULE_SOURCES}
 )
 
@@ -285,6 +288,11 @@ if (NOT TARGET_OS_DEBIAN_FREEBSD)
         PROPERTIES COMPILE_FLAGS "-DHAVE_SETPROCTITLE")
     endif()
 endif()
+
+# Silence `__org_apache_arrow_flatbuf_Message_required' defined but not used.
+set_source_files_properties(
+    ${PROJECT_SOURCE_DIR}/third_party/nanoarrow/nanoarrow_ipc.c
+    PROPERTIES COMPILE_FLAGS "-Wno-unused-const-variable")
 
 set_source_files_compile_flags(${server_sources})
 add_library(server STATIC ${server_sources})

@@ -66,3 +66,18 @@ How to update arrow/abi.h
 
 Get the header from
 git@github.com:apache/arrow.git cpp/src/arrow/c/abi.h
+
+How to update nanoarrow
+=======================
+
+1. Remove tarantool_src/third_party/nanoarrow/
+
+2. Clone the repository into a temporary location:
+git clone https://github.com/apache/arrow-nanoarrow.git
+
+3. Generate the bundled version of nanoarrow library:
+cd arrow-nanoarrow/
+python ./ci/scripts/bundle.py \
+    --symbol-namespace=Tarantool --with-flatcc --with-ipc \
+    --source-output-dir=tarantool_src/third_party/nanoarrow/ \
+    --include-output-dir=tarantool_src/third_party/nanoarrow/
