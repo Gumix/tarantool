@@ -79,7 +79,7 @@ endif()
 add_library(core STATIC ${core_sources})
 
 target_link_libraries(core salad small uri decNumber bit tzcode misc
-                      ${LIBEV_LIBRARIES}
+                      ${LIBEV_LIBRARIES} ${NANOARROW_LIBRARIES}
                       ${LIBEIO_LIBRARIES} ${LIBCORO_LIBRARIES}
                       ${MSGPUCK_LIBRARIES} ${ICU_LIBRARIES}
                       ${LIBCDT_LIBRARIES} ${OPENSSL_LIBRARIES}

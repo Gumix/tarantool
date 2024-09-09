@@ -741,6 +741,13 @@ libccdt_build()
 add_dependencies(build_bundled_libs cdt)
 
 #
+# Nanoarrow
+#
+include(BuildNanoarrow)
+libnanoarrow_build()
+add_dependencies(build_bundled_libs nanoarrow)
+
+#
 # Third-Party misc
 #
 
