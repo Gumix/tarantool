@@ -35,6 +35,7 @@ set(core_sources
     iostream.c
     tt_uuid.c
     mp_uuid.c
+    mp_arrow.c
     mp_datetime.c
     mp_interval.c
     prbuf.c

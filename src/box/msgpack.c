@@ -39,6 +39,7 @@
 #include "mp_interval.h"
 #include "mp_compression.h"
 #include "mp_tuple.h"
+#include "mp_arrow.h"
 
 #include "diag.h"
 #include "error.h"

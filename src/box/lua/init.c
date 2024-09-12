@@ -880,6 +880,10 @@ tuple_err:
 		luaT_error(L);
 		break;
 	}
+	case MP_ARROW: {
+		lua_pushstring(L, "hello");
+		break;
+	}
 	default:
 		diag_set(IllegalParams,
 			 "Unsupported MsgPack extension type: %d", ext_type);

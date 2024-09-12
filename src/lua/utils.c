@@ -36,6 +36,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "core/arrow.h"
 #include "core/datetime.h"
 #include "core/diag.h"
 #include "core/fiber.h"
@@ -58,6 +59,7 @@ uint32_t CTID_VARBINARY;
 uint32_t CTID_UUID;
 uint32_t CTID_DATETIME = 0;
 uint32_t CTID_INTERVAL = 0;
+uint32_t CTID_ARROW_RECORD_BATCH;
 
 /** A copy of index2adr() from luajit/src/lj_api.c. */
 static TValue *
@@ -251,6 +253,51 @@ luaT_pushinterval(struct lua_State *L, const struct interval *itv)
 	struct interval *res = luaT_newinterval(L);
 	memcpy(res, itv, sizeof(struct interval));
 	return res;
+}
+
+struct arrow_record_batch *
+luaT_is_arrow_record_batch(struct lua_State *L, int idx)
+{
+	if (lua_type(L, idx) != LUA_TCDATA)
+		return NULL;
+
+	uint32_t cdata_type;
+	struct arrow_record_batch *ptr = luaL_checkcdata(L, idx, &cdata_type);
+	if (ptr == NULL || cdata_type != CTID_ARROW_RECORD_BATCH)
+		return NULL;
+	return ptr;
+}
+
+static void
+arrow_record_batch_delete(struct arrow_record_batch *arrow)
+{
+	say_debug("!!! %s(%p)", __func__, arrow);
+	assert(arrow->array.release != NULL);
+	assert(arrow->schema.release != NULL);
+	arrow->array.release(&arrow->array);
+	arrow->schema.release(&arrow->schema);
+}
+
+/**
+ * Free `arrow_record_batch' from a Lua code.
+ */
+static int
+lbox_arrow_record_batch_gc(struct lua_State *L)
+{
+	struct arrow_record_batch *arrow = luaT_is_arrow_record_batch(L, 1);
+	assert(arrow != NULL);
+	arrow_record_batch_delete(arrow);
+	return 0;
+}
+
+struct arrow_record_batch *
+luaT_newarrow_record_batch(struct lua_State *L)
+{
+	struct arrow_record_batch *arrow;
+	arrow = luaL_pushcdata(L, CTID_ARROW_RECORD_BATCH);
+	lua_pushcfunction(L, lbox_arrow_record_batch_gc);
+	luaL_setcdatagc(L, -2);
+	return arrow;
 }
 
 void *
@@ -1072,6 +1119,10 @@ tarantool_lua_utils_init(struct lua_State *L)
 	(void)rc;
 	CTID_INTERVAL = luaL_ctypeid(L, "struct interval");
 	assert(CTID_INTERVAL != 0);
+
+	VERIFY(luaL_cdef(L, "struct arrow_record_batch { char xxx[1024]; };") == 0);
+	CTID_ARROW_RECORD_BATCH = luaL_ctypeid(L, "struct arrow_record_batch");
+	assert(CTID_ARROW_RECORD_BATCH != 0);
 
 	/* Overload os.getenv() with our safe variant. */
 	lua_getglobal(L, "os");

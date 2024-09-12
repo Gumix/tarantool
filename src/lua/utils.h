@@ -150,6 +150,9 @@ luaT_newinterval(struct lua_State *L);
 struct interval *
 luaT_pushinterval(struct lua_State *L, const struct interval *itv);
 
+struct arrow_record_batch *
+luaT_newarrow_record_batch(struct lua_State *L);
+
 /**
  * Returns a pointer to the cdata payload.
  *

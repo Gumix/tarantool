@@ -38,10 +38,12 @@
 #include "box/lua/misc.h"
 #include "small/region.h"
 #include "fiber.h"
+#include "core/arrow.h"
 
 /** {{{ box.index Lua library: access to spaces and indexes
  */
 
+extern uint32_t CTID_ARROW_RECORD_BATCH;
 static uint32_t CTID_STRUCT_ITERATOR_PTR = 0;
 
 static int
@@ -418,6 +420,30 @@ lbox_index_compact(lua_State *L)
 	return 0;
 }
 
+static int
+lbox_insert_arrow(lua_State *L)
+{
+	if (lua_gettop(L) != 2 || !lua_isnumber(L, 1)) {
+		diag_set(IllegalParams, "Usage: space:insert_arrow(arrow)");
+		return luaT_error(L);
+	}
+	uint32_t space_id = lua_tonumber(L, 1);
+
+	assert(CTID_ARROW_RECORD_BATCH != 0);
+	uint32_t ctypeid;
+	struct arrow_record_batch *arrow = luaL_checkcdata(L, 2, &ctypeid);
+	if (ctypeid != CTID_ARROW_RECORD_BATCH) {
+		diag_set(IllegalParams, "fffffuuuuuuuu");
+		return luaT_error(L);
+	}
+
+	int rc = box_insert_arrow(space_id, &arrow->array, &arrow->schema);
+	if (rc != 0)
+		return luaT_error(L);
+	lua_pushnil(L);
+	return 1;
+}
+
 /* }}} */
 
 void
@@ -451,6 +477,7 @@ box_lua_index_init(struct lua_State *L)
 		{"truncate", lbox_truncate},
 		{"stat", lbox_index_stat},
 		{"compact", lbox_index_compact},
+		{"insert_arrow", lbox_insert_arrow},
 		{NULL, NULL}
 	};
 

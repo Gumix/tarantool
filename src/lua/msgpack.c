@@ -49,6 +49,7 @@
 #include "lua/decimal.h" /* luaT_newdecimal() */
 #include "mp_extension_types.h"
 #include "mp_uuid.h" /* mp_decode_uuid() */
+#include "mp_arrow.h"
 #include "mp_datetime.h"
 #include "mp_interval.h"
 #include "tt_static.h"
@@ -519,6 +520,13 @@ luamp_decode_with_ctx(struct lua_State *L, struct luaL_serializer *cfg,
 			VERIFY(interval_unpack(data, len, itv) != NULL);
 			return;
 		}
+		case MP_ARROW:
+		{
+			struct arrow_record_batch *arrow;
+			arrow = luaT_newarrow_record_batch(L);
+			VERIFY(arrow_unpack(data, len, arrow) != NULL);
+			return;
+		}
 		default:
 			/* reset data to the extension header */
 			*data = svp;
@@ -530,7 +538,6 @@ luamp_decode_with_ctx(struct lua_State *L, struct luaL_serializer *cfg,
 	}
 	return;
 }
-
 
 static int
 lua_msgpack_encode(lua_State *L)
