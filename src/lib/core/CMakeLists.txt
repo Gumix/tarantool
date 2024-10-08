@@ -28,6 +28,8 @@ set(core_sources
     random.c
     trigger.cc
     port.c
+    arrow_record_batch.c
+    mp_arrow.c
     decimal.c
     mp_decimal.c
     cord_buf.c

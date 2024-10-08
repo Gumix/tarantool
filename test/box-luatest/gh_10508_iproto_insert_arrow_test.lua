@@ -88,8 +88,14 @@ g.test_iproto_insert_arrow_invalid = function(cg)
         --         size: 0}}
         r = _G.iproto_insert_arrow('8210cd020036c70008')
         t.assert_equals(r[box.iproto.key.ERROR_24],
+                        'Invalid MsgPack - packet body')
+        t.assert_equals(r[box.iproto.key.ERROR][0][2][3],
+                        'Invalid MsgPack - invalid extension')
+        t.assert_equals(r[box.iproto.key.ERROR][0][3][3],
+                        'Invalid MsgPack - cannot unpack arrow data')
+        t.assert_equals(r[box.iproto.key.ERROR][0][4][3],
                         'Failed to decode Arrow IPC data')
-        t.assert_equals(r[box.iproto.key.ERROR][0][1][6].details,
+        t.assert_equals(r[box.iproto.key.ERROR][0][4][6].details,
                         'Unexpected data size')
         -- <MP_MAP> {
         --     IPROTO_SPACE_ID: 512,
@@ -99,10 +105,16 @@ g.test_iproto_insert_arrow_invalid = function(cg)
         --         data: [0xde, 0xad, 0xbe, 0xef]}}
         r = _G.iproto_insert_arrow('8210cd020036c70408deadbeef')
         t.assert_equals(r[box.iproto.key.ERROR_24],
+                        'Invalid MsgPack - packet body')
+        t.assert_equals(r[box.iproto.key.ERROR][0][2][3],
+                        'Invalid MsgPack - invalid extension')
+        t.assert_equals(r[box.iproto.key.ERROR][0][3][3],
+                        'Invalid MsgPack - cannot unpack arrow data')
+        t.assert_equals(r[box.iproto.key.ERROR][0][4][3],
                         'Failed to decode Arrow IPC data')
-        t.assert_equals(r[box.iproto.key.ERROR][0][1][6].method,
+        t.assert_equals(r[box.iproto.key.ERROR][0][4][6].method,
                         'ArrowArrayStreamGetSchema')
-        t.assert_equals(r[box.iproto.key.ERROR][0][1][6].details,
+        t.assert_equals(r[box.iproto.key.ERROR][0][4][6].details,
                         'Expected at least 8 bytes in remainder of stream')
 
         -- Correct Schema, but Array is missing.
@@ -112,10 +124,16 @@ g.test_iproto_insert_arrow_invalid = function(cg)
             000004000000f0ffffff4000000001000000610000000600080004000c0010000400
             080009000c000c000c0000000400000008000a000c00040006000800ffffffff]])
         t.assert_equals(r[box.iproto.key.ERROR_24],
+                        'Invalid MsgPack - packet body')
+        t.assert_equals(r[box.iproto.key.ERROR][0][2][3],
+                        'Invalid MsgPack - invalid extension')
+        t.assert_equals(r[box.iproto.key.ERROR][0][3][3],
+                        'Invalid MsgPack - cannot unpack arrow data')
+        t.assert_equals(r[box.iproto.key.ERROR][0][4][3],
                         'Failed to decode Arrow IPC data')
-        t.assert_equals(r[box.iproto.key.ERROR][0][1][6].method,
+        t.assert_equals(r[box.iproto.key.ERROR][0][4][6].method,
                         'ArrowArrayStreamGetNext')
-        t.assert_equals(r[box.iproto.key.ERROR][0][1][6].details,
+        t.assert_equals(r[box.iproto.key.ERROR][0][4][6].details,
                         'Expected at least 8 bytes in remainder of stream')
 
         -- A valid request, but memtx does not support arrow format.
