@@ -155,7 +155,7 @@ local function perf_context()
         build_target = tarantool.build.target,
         date = iso_8061_timestamp(),
         host_name = io.popen('hostname'):read(),
-        load_avg = load_average(),
+        load_avg = nil,
         tarantool_version = tarantool.version,
     }
 end
