@@ -527,9 +527,11 @@ tuple_format_create(struct tuple_format *format, struct key_def *const *keys,
 		field->coll = coll;
 		field->coll_id = cid;
 		field->compression_type = fields[i].compression_type;
-		if (field->compression_type != COMPRESSION_TYPE_NONE)
+#ifdef ENABLE_TUPLE_COMPRESSION
+		if (field->compression_type != COMPRESSION_TYPE_NONE &&
+		    field->compression_type != COMPRESSION_TYPE_RLE)
 			format->is_compressed = true;
-
+#endif
 		field->constraint =
 			tuple_constraint_array_new(fields[i].constraint_def,
 						   fields[i].constraint_count);

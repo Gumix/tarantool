@@ -1552,6 +1552,21 @@ memtx_engine_memory_stat(struct engine *engine, struct engine_memory_stat *stat)
 							MEMTX_EXTENT_SIZE;
 }
 
+static int
+memtx_engine_check_space_def(struct space_def *def)
+{
+	for (uint32_t i = 0; i < def->field_count; i++) {
+#ifdef ENABLE_TUPLE_COMPRESSION
+		if (def->fields[i].compression_type == COMPRESSION_TYPE_RLE) {
+			diag_set(ClientError, ER_UNSUPPORTED,
+				 "memtx", "RLE compression");
+			return -1;
+		}
+#endif
+	}
+	return 0;
+}
+
 static const struct engine_vtab memtx_engine_vtab = {
 	/* .free = */ memtx_engine_free,
 	/* .shutdown = */ memtx_engine_shutdown,
@@ -1582,7 +1597,7 @@ static const struct engine_vtab memtx_engine_vtab = {
 	/* .backup = */ memtx_engine_backup,
 	/* .memory_stat = */ memtx_engine_memory_stat,
 	/* .reset_stat = */ generic_engine_reset_stat,
-	/* .check_space_def = */ generic_engine_check_space_def,
+	/* .check_space_def = */ memtx_engine_check_space_def,
 };
 
 /**
