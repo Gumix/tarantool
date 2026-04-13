@@ -32,6 +32,7 @@
 
 #include <msgpuck.h>
 
+#include "arrow_ipc.h"
 #include "authentication.h"
 #include "xlog.h"
 #include "fiber.h"
@@ -49,7 +50,6 @@
 #include "error.h"
 #include "errinj.h"
 #include "session.h"
-#include "cfg.h"
 #include "schema.h"
 #include "txn.h"
 #include "box.h"
@@ -1118,7 +1118,7 @@ applier_read_tx_row(struct applier *applier, const struct applier_read_ctx *ctx,
 
 /** Decode the incoming row and create the appropriate request from it. */
 static void
-applier_parse_tx_row(struct applier_tx_row *tx_row)
+applier_parse_tx_row(struct applier *applier, struct applier_tx_row *tx_row)
 {
 	struct xrow_header *row = &tx_row->row;
 	uint16_t type = row->type;
@@ -1126,6 +1126,25 @@ applier_parse_tx_row(struct applier_tx_row *tx_row)
 		if (xrow_decode_dml(row, &tx_row->req.dml,
 				    dml_request_key_map(type)) != 0) {
 			diag_raise();
+		}
+		if (type == IPROTO_INSERT_ARROW) {
+			// TODO: Set has_arrow_ipc flag.
+			struct request *req = &tx_row->req.dml;
+			struct lsregion *lsr = &applier->thread.lsr;
+			req->arrow_array = lsregion_alloc_object(
+				lsr, ++applier->thread.lsr_id,
+				struct ArrowArray);
+			if (req->arrow_array == NULL)
+				tnt_raise(
+					OutOfMemory, sizeof(struct ArrowArray),
+					"lsregion_alloc_object", "ArrowArray");
+			req->arrow_schema = lsregion_alloc_object(
+				lsr, ++applier->thread.lsr_id,
+				struct ArrowSchema);
+			if (req->arrow_schema == NULL)
+				tnt_raise(
+					OutOfMemory, sizeof(struct ArrowSchema),
+					"lsregion_alloc_object", "ArrowSchema");
 		}
 	} else if (iproto_type_is_synchro_request(type)) {
 		if (xrow_decode_synchro(row, &tx_row->req.synchro) != 0) {
@@ -1207,7 +1226,7 @@ applier_read_tx(struct applier *applier, struct stailq *rows,
 			applier_read_tx_row(applier, ctx, timeout);
 		tsn = set_next_tx_row(rows, tx_row, tsn);
 		ctx->save_body(applier, &tx_row->row);
-		applier_parse_tx_row(tx_row);
+		applier_parse_tx_row(applier, tx_row);
 		++row_count;
 	} while (tsn != 0);
 	return row_count;
@@ -2073,6 +2092,28 @@ thread_save_body(struct applier *applier, struct xrow_header *row)
 	}
 }
 
+static void
+applier_decode_arrow_ipc(struct stailq *rows)
+{
+	struct applier_tx_row *tx_row;
+	stailq_foreach_entry(tx_row, rows, next) {
+		struct xrow_header *row = &tx_row->row;
+		if (row->type != IPROTO_INSERT_ARROW)
+			continue;
+		struct request *req = &tx_row->req.dml;
+		if (arrow_ipc_decode(req->arrow_array, req->arrow_schema,
+				     req->arrow_ipc, req->arrow_ipc_end) != 0) {
+			if (req->arrow_array->release != NULL)
+				req->arrow_array->release(req->arrow_array);
+			if (req->arrow_schema->release != NULL)
+				req->arrow_schema->release(req->arrow_schema);
+			/*
+			 * TODO: Comment about do not raise.
+			 */
+		}
+	}
+}
+
 /** Applier thread reader fiber function. */
 static int
 applier_thread_reader_f(va_list ap)
@@ -2116,6 +2157,8 @@ applier_thread_reader_f(va_list ap)
 			if (fiber_is_cancelled())
 				return 0;
 		} while (true);
+		// TODO: Check has_arrow_ipc
+		applier_decode_arrow_ipc(&tx->rows);
 		applier_thread_push_tx(thread, msg, tx);
 	}
 	return 0;
@@ -2287,11 +2330,35 @@ applier_thread_attach_applier(struct cbus_call_msg *base)
 	return 0;
 }
 
+static void
+applier_release_arrow(struct applier *applier)
+{
+	struct applier_data_msg *msg =
+		&applier->thread.msgs[applier->thread.msg_ptr];
+	struct applier_tx *tx;
+	stailq_foreach_entry(tx, &msg->txs, next) {
+		struct applier_tx_row *tx_row;
+		stailq_foreach_entry(tx_row, &tx->rows, next) {
+			struct xrow_header *row = &tx_row->row;
+			if (row->type != IPROTO_INSERT_ARROW)
+				continue;
+			struct request *req = &tx_row->req.dml;
+			if (req->arrow_array != NULL &&
+			    req->arrow_array->release != NULL)
+				req->arrow_array->release(req->arrow_array);
+			if (req->arrow_schema != NULL &&
+			    req->arrow_schema->release != NULL)
+				req->arrow_schema->release(req->arrow_schema);
+		}
+	}
+}
+
 /** Notify the applier thread one of the appliers it served is dead. */
 static int
 applier_thread_detach_applier(struct cbus_call_msg *base)
 {
 	struct applier *applier = ((struct applier_cfg_msg *)base)->applier;
+	applier_release_arrow(applier);
 	if (applier->thread.writer != NULL) {
 		fiber_cancel(applier->thread.writer);
 		fiber_join(applier->thread.writer);
